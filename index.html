@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Algorithm Master: ภารกิจจัดลำดับความคิดแก้ไขปัญหา</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        cyber: {
+                            bg: '#090d16',
+                            panel: 'rgba(15, 23, 42, 0.85)',
+                            border: 'rgba(56, 189, 248, 0.3)',
+                            neon: '#38bdf8',
+                            accent: '#a855f7',
+                            gold: '#f59e0b',
+                            success: '#10b981'
+                        }
+                    },
+                    fontFamily: {
+                        kanit: ['Kanit', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- MediaPipe Hands & Camera Utils CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+    <!-- FontAwesome Icons CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            font-family: 'Kanit', sans-serif;
+            background-color: #090d16;
+            color: #f8fafc;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(56, 189, 248, 0.25);
+            box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.5);
+        }
+
+        .glass-card {
+            background: rgba(30, 41, 59, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+            transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .glass-card:hover {
+            border-color: rgba(56, 189, 248, 0.6);
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.3);
+        }
+
+        .drop-slot {
+            background: rgba(15, 23, 42, 0.6);
+            border: 2px dashed rgba(56, 189, 248, 0.4);
+            transition: all 0.2s ease;
+        }
+
+        .drop-slot.active-target {
+            border-color: #38bdf8;
+            background: rgba(56, 189, 248, 0.15);
+            box-shadow: 0 0 20px rgba(56, 189, 248, 0.4);
+        }
+
+        /* Print Style for E-Certificate */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #certificate-modal, #certificate-modal * {
+                visibility: visible;
+            }
+            #certificate-modal {
+                position: fixed;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+                background: white !important;
+                display: flex !important;
+                align-items: center;
+                justify-content: center;
+                z-index: 9999;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .cert-body {
+                border: 8px double #1e293b !important;
+                background: #ffffff !important;
+                color: #0f172a !important;
+                box-shadow: none !important;
+                width: 100% !important;
+                max-width: 900px !important;
+            }
+            .cert-text-title {
+                color: #b45309 !important;
+                background: none !important;
+                -webkit-text-fill-color: initial !important;
+            }
+            .cert-text-name {
+                color: #0369a1 !important;
+            }
+        }
+    </style>
+</head>
+<body class="relative w-screen h-screen flex flex-col justify-between overflow-hidden">
+
+    <!-- AR Layer: Video Stream & Interactive Canvas -->
+    <div class="fixed inset-0 z-0 pointer-events-auto">
+        <video id="webcam" class="hidden" playsinline></video>
+        <canvas id="ar-canvas" class="w-full h-full object-cover"></canvas>
+    </div>
+
+    <!-- UI Overlay Layer -->
+    <div class="relative z-10 flex flex-col h-full justify-between pointer-events-none p-4 md:p-6">
+
+        <!-- Top Header Navigation -->
+        <header class="w-full flex flex-wrap justify-between items-center pointer-events-auto glass-panel p-3.5 px-5 rounded-2xl gap-3">
+            <div class="flex items-center space-x-3">
+                <div class="p-2.5 bg-sky-500/20 rounded-xl border border-sky-400/40 text-sky-400 shadow-lg shadow-sky-500/20">
+                    <i class="fa-solid fa-brain text-2xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg md:text-xl text-transparent bg-clip-text bg-gradient-to-r from-sky-400 via-indigo-300 to-purple-400">
+                        Algorithm Master
+                    </h1>
+                    <p class="text-xs text-sky-300/80">ภารกิจจัดลำดับความคิดแก้ไขปัญหา</p>
+                </div>
+            </div>
+
+            <!-- Stats HUD -->
+            <div class="flex items-center space-x-3 text-sm">
+                <div class="bg-slate-900/80 border border-slate-700/60 rounded-xl px-3 py-1.5 flex items-center space-x-2">
+                    <i class="fa-solid fa-trophy text-amber-400"></i>
+                    <span class="text-xs text-slate-400">คะแนน:</span>
+                    <span id="score-display" class="font-bold text-amber-300">0</span>
+                </div>
+
+                <div class="bg-slate-900/80 border border-slate-700/60 rounded-xl px-3 py-1.5 flex items-center space-x-2">
+                    <i class="fa-solid fa-layer-group text-purple-400"></i>
+                    <span class="text-xs text-slate-400">ด่าน:</span>
+                    <span id="level-display" class="font-bold text-purple-300">1 / 4</span>
+                </div>
+
+                <!-- Hand Tracking Status Indicator -->
+                <div id="hand-status" class="bg-slate-900/80 border border-slate-700/60 rounded-xl px-3 py-1.5 flex items-center space-x-2">
+                    <span id="status-dot" class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+                    <span id="status-text" class="text-xs text-slate-300">กำลังเชื่อมต่อกล้อง...</span>
+                </div>
+
+                <button id="btn-toggle-cam" onclick="toggleWebcam()" class="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-xl text-sky-400 transition" title="เปิด/ปิด กล้อง">
+                    <i id="cam-icon" class="fa-solid fa-video"></i>
+                </button>
+
+                <button onclick="toggleHelpModal()" class="p-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-xl text-purple-400 transition" title="วิธีเล่น">
+                    <i class="fa-solid fa-circle-question"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Gameplay Arena -->
+        <main class="w-full max-w-6xl mx-auto flex-1 my-3 flex flex-col justify-between pointer-events-none">
+            
+            <!-- Mission Banner -->
+            <div class="glass-panel p-4 rounded-2xl pointer-events-auto mb-3">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <span id="mission-badge" class="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-500/20 text-sky-300 border border-sky-400/30 mb-1">
+                            ด่านที่ 1
+                        </span>
+                        <h2 id="mission-title" class="text-base md:text-lg font-bold text-slate-100">
+                            ภารกิจ: ขั้นตอนการล้างมือ 7 ขั้นตอน
+                        </h2>
+                        <p id="mission-desc" class="text-xs text-slate-300">
+                            จีบนิ้วลากกล่องขั้นตอนด้านล่างไปวางใน ช่องลำดับอัลกอริทึม ให้ถูกต้องตามลำดับ
+                        </p>
+                    </div>
+                    <button onclick="resetCurrentLevel()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 rounded-xl text-xs flex items-center space-x-1.5 transition">
+                        <i class="fa-solid fa-rotate-left"></i>
+                        <span>เริ่มใหม่</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Target Slots (Drop Zones) -->
+            <div class="mb-3">
+                <p class="text-xs text-sky-300 mb-1.5 font-medium flex items-center space-x-1">
+                    <i class="fa-solid fa-list-ol"></i>
+                    <span>ลำดับขั้นตอนการทำงาน (Algorithm Sequence Target)</span>
+                </p>
+                <div id="drop-slots-container" class="grid grid-cols-1 md:grid-cols-5 gap-2.5">
+                    <!-- Drop slots generated dynamically -->
+                </div>
+            </div>
+
+            <!-- Draggable Cards Pool -->
+            <div>
+                <p class="text-xs text-purple-300 mb-1.5 font-medium flex items-center space-x-1">
+                    <i class="fa-solid fa-cubes"></i>
+                    <span>กล่องคำสั่งที่ต้องจัดเรียง (Draggable Cards)</span>
+                </p>
+                <div id="cards-pool-container" class="grid grid-cols-1 md:grid-cols-5 gap-2.5 min-h-[100px]">
+                    <!-- Draggable cards generated dynamically -->
+                </div>
+            </div>
+        </main>
+
+        <!-- Bottom Action Bar -->
+        <footer class="w-full flex justify-between items-center pointer-events-auto glass-panel p-3 px-5 rounded-2xl">
+            <div class="text-xs text-slate-400">
+                <i class="fa-solid fa-hand-pointer text-sky-400 mr-1"></i>
+                <span>ใช้นิ้วชี้ชี้ตำแหน่ง หรือ **จีบนิ้วชี้กับนิ้วโป้ง** เพื่อลากวางกล่อง | รองรับการใช้เมาส์/สัมผัส</span>
+            </div>
+
+            <div class="flex items-center space-x-3">
+                <button onclick="showHint()" class="px-4 py-2 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 rounded-xl text-xs font-medium transition flex items-center space-x-1.5">
+                    <i class="fa-solid fa-lightbulb"></i>
+                    <span>ขอคำใบ้</span>
+                </button>
+                <button onclick="checkAnswer()" class="px-5 py-2 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 border border-sky-300/30 text-white rounded-xl text-sm font-semibold shadow-lg shadow-sky-500/30 transition flex items-center space-x-2">
+                    <i class="fa-solid fa-circle-check"></i>
+                    <span>ตรวจคำตอบ</span>
+                </button>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Modals -->
+
+    <!-- How to Play Modal -->
+    <div id="help-modal" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-md flex items-center justify-center p-4 hidden">
+        <div class="glass-panel max-w-lg w-full p-6 rounded-3xl border border-sky-400/30 text-slate-200">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-sky-400 flex items-center space-x-2">
+                    <i class="fa-solid fa-gamepad"></i>
+                    <span>วิธีการเล่น & การควบคุม</span>
+                </h3>
+                <button onclick="toggleHelpModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-xl"></i></button>
+            </div>
+            <div class="space-y-3 text-sm">
+                <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50 flex items-start space-x-3">
+                    <i class="fa-solid fa-hand-back-fist text-sky-400 text-xl mt-1"></i>
+                    <div>
+                        <h4 class="font-semibold text-sky-300">ควบคุมด้วยมือ (Hand Gesture)</h4>
+                        <p class="text-xs text-slate-300">ยกมือขึ้นหน้ากล้อง ใช้นิ้วชี้เพื่อควบคุมเคอร์เซอร์ นำปลาย **นิ้วชี้มาแตะกับนิ้วโป้ง (Pinch)** เพื่อหนีบจับการ์ด แล้วลากไปวางในช่องเป้าหมาย</p>
+                    </div>
+                </div>
+                <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50 flex items-start space-x-3">
+                    <i class="fa-solid fa-mouse text-purple-400 text-xl mt-1"></i>
+                    <div>
+                        <h4 class="font-semibold text-purple-300">ควบคุมด้วยเมาส์ / สัมผัสหน้าจอ</h4>
+                        <p class="text-xs text-slate-300">หากไม่มีกล้องหรือเปิดใช้งานกล้องไม่ได้ สามารถใช้เมาส์คลิกลากวาง หรือใช้นิ้วสัมผัสหน้าจอได้ตามปกติ</p>
+                    </div>
+                </div>
+                <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-700/50 flex items-start space-x-3">
+                    <i class="fa-solid fa-lightbulb text-amber-400 text-xl mt-1"></i>
+                    <div>
+                        <h4 class="font-semibold text-amber-300">เป้าหมายของเกม</h4>
+                        <p class="text-xs text-slate-300">จัดเรียงลำดับความคิดและอัลกอริทึมของแต่ละภารกิจให้ถูกต้องสมบูรณ์แบบครบทั้ง 4 ด่านเพื่อรับวุฒิบัตร E-Certificate!</p>
+                    </div>
+                </div>
+            </div>
+            <button onclick="toggleHelpModal()" class="w-full mt-5 py-2.5 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold rounded-xl transition">
+                เข้าใจแล้ว เริ่มเล่นกันเลย!
+            </button>
+        </div>
+    </div>
+
+    <!-- E-Certificate Modal -->
+    <div id="certificate-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 hidden">
+        <div class="cert-body glass-panel max-w-2xl w-full p-8 rounded-3xl border-2 border-amber-400/50 text-center relative shadow-2xl">
+            <div class="absolute top-4 right-4 no-print flex space-x-2">
+                <button onclick="window.print()" class="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs transition flex items-center space-x-1">
+                    <i class="fa-solid fa-print"></i>
+                    <span>พิมพ์วุฒิบัตร / PDF</span>
+                </button>
+                <button onclick="closeCertificate()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Certificate Content -->
+            <div class="py-4 px-2 border-4 border-double border-amber-400/40 rounded-2xl bg-slate-900/90">
+                <div class="text-amber-400 text-4xl mb-2"><i class="fa-solid fa-award"></i></div>
+                <h2 class="cert-text-title text-2xl md:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-500 mb-1">
+                    CERTIFICATE OF ACHIEVEMENT
+                </h2>
+                <p class="text-xs uppercase tracking-widest text-slate-400 mb-4">ประกาศนียบัตรนี้ให้ไว้เพื่อแสดงว่า</p>
+
+                <div class="my-4">
+                    <input id="player-name-input" type="text" value="ผู้พิชิตอัลกอริทึมรุ่นเยาว์" class="cert-text-name text-xl md:text-2xl font-bold text-sky-300 text-center bg-transparent border-b border-sky-400/50 focus:outline-none px-2 py-1 max-w-xs no-print" onchange="updateCertName(this.value)">
+                    <p id="player-name-print" class="hidden text-2xl font-bold text-sky-800 uppercase my-2"></p>
+                </div>
+
+                <p class="text-sm text-slate-300 max-w-md mx-auto leading-relaxed">
+                    ได้ผ่านการทดสอบทักษะการคิดเชิงคำนวณและการจัดลำดับอัลกอริทึม
+                    <br><span class="font-bold text-sky-400">"Algorithm Master Mission"</span> ได้สำเร็จครบทุกภารกิจ
+                </p>
+
+                <div class="mt-6 flex justify-around items-center border-t border-slate-700/60 pt-4 text-xs text-slate-400">
+                    <div>
+                        <p class="text-amber-300 font-bold text-sm" id="cert-final-score">100</p>
+                        <p>คะแนนรวมสุทธิ</p>
+                    </div>
+                    <div>
+                        <p class="text-emerald-400 font-bold text-sm" id="cert-date">--/--/----</p>
+                        <p>วันที่ได้รับสำเร็จ</p>
+                    </div>
+                    <div>
+                        <p class="text-purple-300 font-bold text-sm">GRADE A+</p>
+                        <p>ระดับความเชี่ยวชาญ</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Web Audio & Game Logic Script -->
+    <script>
+        // --- Web Audio API Synthesizer ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playSound(type) {
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            const now = audioCtx.currentTime;
+
+            if (type === 'pinch') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(400, now);
+                osc.frequency.exponentialRampToValueAtTime(800, now + 0.08);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+                osc.start(now);
+                osc.stop(now + 0.08);
+            } else if (type === 'drop') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(600, now);
+                osc.frequency.exponentialRampToValueAtTime(300, now + 0.1);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            } else if (type === 'success') {
+                const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+                notes.forEach((freq, i) => {
+                    const noteOsc = audioCtx.createOscillator();
+                    const noteGain = audioCtx.createGain();
+                    noteOsc.connect(noteGain);
+                    noteGain.connect(audioCtx.destination);
+                    noteOsc.frequency.value = freq;
+                    noteGain.gain.setValueAtTime(0.15, now + i * 0.08);
+                    noteGain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.08 + 0.25);
+                    noteOsc.start(now + i * 0.08);
+                    noteOsc.stop(now + i * 0.08 + 0.25);
+                });
+            } else if (type === 'wrong') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(220, now);
+                osc.frequency.setValueAtTime(180, now + 0.1);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                osc.start(now);
+                osc.stop(now + 0.25);
+            }
+        }
+
+        // --- Game Missions Data ---
+        const MISSIONS = [
+            {
+                id: 1,
+                title: "ภารกิจที่ 1: ขั้นตอนการล้างมือ 7 ขั้นตอน (Hygiene Handwashing)",
+                desc: "เรียงลำดับขั้นตอนการล้างมือให้ถูกต้องตามหลักสุขอนามัย",
+                
